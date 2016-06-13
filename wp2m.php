@@ -127,7 +127,6 @@ function encrypt_string($value, $key) {
     return trim($data);
 }
 
-
 /**
  * handler for the plugins shortcode (e.g. [link2moodle cohort='abc123']my link text[/link2moodle])
  * note: applies do_shortcode() to content to allow other plugins to be handled on links
@@ -173,6 +172,29 @@ add_filter('mp_download_url', 'wp2m_download_url', 10, 3);
 // over-ride the url for WooCommerce *if* the download is a file named something-wp2moodle.txt
 add_filter('woocommerce_download_file_redirect','woo_wp2m_download_url', 5, 2);
 add_filter('woocommerce_download_file_force','woo_wp2m_download_url', 5, 2);
+
+add_filter('query_vars', 'wp2moodle_add_query_vars');
+function wp2moodle_add_query_vars($vars) {
+	$vars[] = 'wp2moodle_sso';
+	return $vars;
+}
+
+add_action('template_redirect', 'wp2moodle_template_redirect');
+function wp2moodle_template_redirect($template) {
+	global $wp_query, $current_user;
+
+	$moodle_url = $wp_query->query['wp2moodle_sso'];
+	if ($moodle_url) {
+		if (is_user_logged_in()) {
+			wp_redirect(wp2moodle_generate_bare_hyperlink($moodle_url));
+		} else {
+			wp_redirect("welcome?redirect_to=".urlencode("index.php?wp2moodle_sso=$moodle_url"));
+		}
+		exit();
+	} else {
+		return $template;
+	}
+}
 
 // woo shim to handle different arguments
 function woo_wp2m_download_url($filepath, $filename) {
@@ -249,6 +271,33 @@ function wp2moodle_generate_hyperlink($cohort,$group,$course,$activity = 0) {
 		"course" => $course,								// string containing course id, optional
 		"updatable" => $update,								// if user profile fields can be updated in moodle
 		"activity" => $activity						// index of first [visible] activity to go to, if auto-open is enabled in moodle
+	);
+
+	// encode array as querystring
+	$details = http_build_query($enc);
+
+	// encryption = 3des using shared_secret
+	return rtrim(get_option('wp2m_moodle_url'),"/").WP2M_MOODLE_PLUGIN_URL.encrypt_string($details, get_option('wp2m_shared_secret'));
+	//return get_option('wp2m_moodle_url').WP2M_MOODLE_PLUGIN_URL.'=>'.$details;
+}
+
+function wp2moodle_generate_bare_hyperlink($redirect) {
+	// needs authentication; ensure userinfo globals are populated
+	global $current_user;
+    get_currentuserinfo();
+
+	$update = get_option('wp2m_update_details') ?: "true";
+
+    $enc = array(
+		"offset" => rand(1234,5678),						// just some junk data to mix into the encryption
+		"stamp" => time(),									// unix timestamp so we can check that the link isn't expired
+		"firstname" => $current_user->user_firstname,		// first name
+		"lastname" => $current_user->user_lastname,			// last name
+		"email" => $current_user->user_email,				// email
+		"username" => $current_user->user_login,			// username
+		"passwordhash" => $current_user->user_pass,			// hash of password (we don't know/care about the raw password)
+		"idnumber" => $current_user->ID,					// int id of user in this db (for user matching on services, etc)
+		"comefrom" => $redirect,
 	);
 
 	// encode array as querystring
