@@ -1,0 +1,17 @@
+{
+    "name": "nickivanter/wp2moodle",
+    "type": "wordpress-plugin",
+    "require": {
+        "composer/installers": "^1.0"
+    },
+    "authors": [
+        {
+            "name": "frumbert",
+            "email": "tim.stclair@gmail.com"
+        },
+        {
+            "name": "Denis Semenov",
+            "email": "nonamenerd@gmail.com"
+        }
+    ]
+}
