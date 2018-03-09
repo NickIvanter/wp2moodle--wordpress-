@@ -173,29 +173,6 @@ add_filter('mp_download_url', 'wp2m_download_url', 10, 3);
 add_filter('woocommerce_download_file_redirect','woo_wp2m_download_url', 5, 2);
 add_filter('woocommerce_download_file_force','woo_wp2m_download_url', 5, 2);
 
-add_filter('query_vars', 'wp2moodle_add_query_vars');
-function wp2moodle_add_query_vars($vars) {
-	$vars[] = 'wp2moodle_sso';
-	return $vars;
-}
-
-add_action('template_redirect', 'wp2moodle_template_redirect');
-function wp2moodle_template_redirect($template) {
-	global $wp_query, $current_user;
-
-	$moodle_url = $wp_query->query['wp2moodle_sso'];
-	if ($moodle_url) {
-		if (is_user_logged_in()) {
-			wp_redirect(wp2moodle_generate_bare_hyperlink($moodle_url));
-		} else {
-			wp_redirect("welcome?redirect_to=".urlencode("index.php?wp2moodle_sso=$moodle_url"));
-		}
-		exit();
-	} else {
-		return $template;
-	}
-}
-
 // woo shim to handle different arguments
 function woo_wp2m_download_url($filepath, $filename) {
 	wp2m_download_url($filepath, "", "");
@@ -281,6 +258,49 @@ function wp2moodle_generate_hyperlink($cohort,$group,$course,$activity = 0) {
 	//return get_option('wp2m_moodle_url').WP2M_MOODLE_PLUGIN_URL.'=>'.$details;
 }
 
+/**
+ * initialiser for registering scripts to the rich editor
+ */
+function wp2m_add_button() {
+	if ( current_user_can('edit_posts') &&  current_user_can('edit_pages') ) {
+	    add_filter('mce_external_plugins', 'wp2m_add_plugin');
+	    add_filter('mce_buttons', 'wp2m_register_button');
+	}
+}
+function wp2m_register_button($buttons) {
+   array_push($buttons,"|","wp2m"); // pipe = break on toolbar
+   return $buttons;
+}
+function wp2m_add_plugin($plugin_array) {
+	// __FILE__ breaks if wp2moodle is a symlink, so we have to use the defined directory
+   $plugin_array['wp2m'] = plugins_url( 'wp2moodle/wp2m.js', WP2M_PLUGIN_DIRECTORY); // __FILE__ );
+   return $plugin_array;
+}
+
+// Custom changes for bbc
+add_filter('query_vars', 'wp2moodle_add_query_vars');
+function wp2moodle_add_query_vars($vars) {
+	$vars[] = 'wp2moodle_sso';
+	return $vars;
+}
+
+add_action('template_redirect', 'wp2moodle_template_redirect');
+function wp2moodle_template_redirect($template) {
+	global $wp_query, $current_user;
+
+	$moodle_url = $wp_query->query['wp2moodle_sso'];
+	if ($moodle_url) {
+		if (is_user_logged_in()) {
+			wp_redirect(wp2moodle_generate_bare_hyperlink($moodle_url));
+		} else {
+			wp_redirect("welcome?redirect_to=".urlencode("index.php?wp2moodle_sso=$moodle_url"));
+		}
+		exit();
+	} else {
+		return $template;
+	}
+}
+
 function wp2moodle_generate_bare_hyperlink($redirect) {
 	// needs authentication; ensure userinfo globals are populated
 	global $current_user;
@@ -307,24 +327,4 @@ function wp2moodle_generate_bare_hyperlink($redirect) {
 	return rtrim(get_option('wp2m_moodle_url'),"/").WP2M_MOODLE_PLUGIN_URL.encrypt_string($details, get_option('wp2m_shared_secret'));
 	//return get_option('wp2m_moodle_url').WP2M_MOODLE_PLUGIN_URL.'=>'.$details;
 }
-
-/**
- * initialiser for registering scripts to the rich editor
- */
-function wp2m_add_button() {
-	if ( current_user_can('edit_posts') &&  current_user_can('edit_pages') ) {
-	    add_filter('mce_external_plugins', 'wp2m_add_plugin');
-	    add_filter('mce_buttons', 'wp2m_register_button');
-	}
-}
-function wp2m_register_button($buttons) {
-   array_push($buttons,"|","wp2m"); // pipe = break on toolbar
-   return $buttons;
-}
-function wp2m_add_plugin($plugin_array) {
-	// __FILE__ breaks if wp2moodle is a symlink, so we have to use the defined directory
-   $plugin_array['wp2m'] = plugins_url( 'wp2moodle/wp2m.js', WP2M_PLUGIN_DIRECTORY); // __FILE__ );
-   return $plugin_array;
-}
-
 ?>
